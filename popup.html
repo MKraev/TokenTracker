@@ -12,19 +12,28 @@
     .provider-box { background: #fff; border: 1px solid #d3dce6; border-radius: 6px; padding: 10px; text-align: left; }
     .provider-name { font-size: 13px; font-weight: 700; color: #2c3e50; margin-bottom: 6px; }
     .provider-value { font-size: 12px; color: #4a5568; margin: 2px 0; }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .month-history { text-align: left; margin-top: 12px; }
+    .month-history .label { margin-bottom: 8px; }
+    .month-history-item { background: #fff; border: 1px solid #d3dce6; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; display: flex; justify-content: space-between; font-size: 12px; color: #4a5568; }
+    .month-history-item span:first-child { font-weight: 700; color: #2c3e50; }
     button { background: #3498db; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
     button:hover { background: #2980b9; }
   </style>
 </head>
 <body>
-  <h3>📊 Моите AI Токени</h3>
+  <h3>📊 My AI Tokens</h3>
   <div class="stat-box">
-    <div class="label">Входни (Промпт)</div>
-    <div id="pTokens" class="stat">0</div>
+    <div class="label">Today P</div>
+    <div id="currentMonthPrompt" class="stat">0</div>
   </div>
   <div class="stat-box">
-    <div class="label">Изходни (Отговор)</div>
-    <div id="cTokens" class="stat">0</div>
+    <div class="label">Today C</div>
+    <div id="currentMonthCompletion" class="stat">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">Today total</div>
+    <div id="currentMonthTotal" class="stat">0</div>
   </div>
   <div class="providers">
     <div class="provider-box">
@@ -48,7 +57,17 @@
       <div class="provider-value">C: <span id="otherCompletion">0</span></div>
     </div>
   </div>
-  <button id="downloadBtn">📥 Свали JSON за GitHub</button>
+  <div class="stat-box">
+    <div class="label" id="monthSpendLabel">Monthly spend</div>
+    <div class="stat-row"><span>Input</span><span id="monthSpendInput" class="stat">0</span></div>
+    <div class="stat-row"><span>Output</span><span id="monthSpendOutput" class="stat">0</span></div>
+    <div class="stat-row"><span>Total</span><span id="monthSpendTotal" class="stat">0</span></div>
+  </div>
+  <div class="month-history">
+    <div class="label">Last months</div>
+    <div id="monthHistory"></div>
+  </div>
+  <button id="downloadBtn">📥 Download JSON for GitHub</button>
   <script src="popup.js"></script>
 </body>
 </html>

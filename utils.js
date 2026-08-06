@@ -1,6 +1,7 @@
 // utils.js
 let lastSentSelection = '';
 let debounceTimer = null;
+const trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 function canUseChromeRuntime() {
   try {
@@ -62,3 +63,8 @@ window.addEventListener('unhandledrejection', (ev) => {
     chrome.runtime.sendMessage({ action: 'reportError', message: 'unhandledrejection', stack: String(reason) });
   } catch (e) {}
 });
+
+trackerApi.canUseChromeRuntime = canUseChromeRuntime;
+trackerApi.estimateTokensFromText = estimateTokensFromText;
+trackerApi.directStorageUpdate = directStorageUpdate;
+trackerApi.reportError = reportError;
