@@ -1,6 +1,6 @@
 // tracker-core.js
 
-const trackerApi = window.TokenTracker = window.TokenTracker || {};
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 function getProviderForHostname(hostname) {
   const host = String(hostname || '').toLowerCase();

@@ -1,6 +1,6 @@
 // dom-analyzer.js
 
-const trackerApi = window.TokenTracker = window.TokenTracker || {};
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 function getDeepActiveElement(doc = document) {
   try {

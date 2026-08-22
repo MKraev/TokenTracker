@@ -1,4 +1,4 @@
-const trackerApi = window.TokenTracker = window.TokenTracker || {};
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 const currentMonthPromptEl = document.getElementById('currentMonthPrompt');
 const currentMonthCompletionEl = document.getElementById('currentMonthCompletion');
@@ -62,9 +62,9 @@ function refreshStats() {
     const currentDayCompletion = currentDayData.completionTokens || 0;
     const currentDayTotal = currentDayPrompt + currentDayCompletion;
 
-    if (currentMonthPromptEl) currentMonthPromptEl.innerText = currentDayPrompt;
-    if (currentMonthCompletionEl) currentMonthCompletionEl.innerText = currentDayCompletion;
-    if (currentMonthTotalEl) currentMonthTotalEl.innerText = currentDayTotal;
+    if (currentMonthPromptEl) currentMonthPromptEl.innerText = currentMonthPrompt;
+    if (currentMonthCompletionEl) currentMonthCompletionEl.innerText = currentMonthCompletion;
+    if (currentMonthTotalEl) currentMonthTotalEl.innerText = currentMonthTotal;
 
     if (monthSpendLabel) monthSpendLabel.innerText = `Monthly spend:`;
     if (monthSpendInputEl) monthSpendInputEl.innerText = currentMonthPrompt;

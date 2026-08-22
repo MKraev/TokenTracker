@@ -1,7 +1,5 @@
 // utils.js
-let lastSentSelection = '';
-let debounceTimer = null;
-const trackerApi = window.TokenTracker = window.TokenTracker || {};
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 function canUseChromeRuntime() {
   try {

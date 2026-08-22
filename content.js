@@ -1,6 +1,6 @@
 // content.js
 
-const trackerApi = window.TokenTracker = window.TokenTracker || {};
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 let debounceTimer = null;
 let lastSentSelection = '';
