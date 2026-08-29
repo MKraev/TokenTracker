@@ -57,32 +57,78 @@ function getTrackingSignature(text, type) {
   return `${type || 'unknown'}:${String(text || '').trim().slice(0, 240)}`;
 }
 
+function getIncrementalTextDelta(key, nextText) {
+  const previous = trackerApi.lastObservedText || {};
+  const prior = previous[key] || '';
+  let delta = '';
+
+  if (!prior) {
+    delta = nextText;
+  } else if (nextText.startsWith(prior)) {
+    delta = nextText.slice(prior.length);
+  } else if (prior.startsWith(nextText)) {
+    delta = '';
+  } else {
+    const maxLength = Math.max(prior.length, nextText.length);
+    let commonPrefix = 0;
+    while (commonPrefix < maxLength && prior[commonPrefix] === nextText[commonPrefix]) {
+      commonPrefix += 1;
+    }
+
+    const trimmedPrior = prior.slice(commonPrefix);
+    const trimmedNext = nextText.slice(commonPrefix);
+    const suffixLength = Math.min(trimmedPrior.length, trimmedNext.length);
+    let commonSuffix = 0;
+    while (commonSuffix < suffixLength && trimmedPrior[trimmedPrior.length - 1 - commonSuffix] === trimmedNext[trimmedNext.length - 1 - commonSuffix]) {
+      commonSuffix += 1;
+    }
+
+    const candidate = trimmedNext.slice(0, trimmedNext.length - commonSuffix);
+    delta = candidate || nextText;
+  }
+
+  previous[key] = nextText;
+  trackerApi.lastObservedText = previous;
+  return delta.trim();
+}
+
 function trySendSelection() {
   try {
     const tracked = typeof trackerApi.getTrackedTextContext === 'function' ? trackerApi.getTrackedTextContext() : getTrackedTextContext();
     const selectedText = tracked && tracked.text ? tracked.text : '';
     if (!selectedText) return;
 
-    const estimatedTokens = typeof trackerApi.estimateTokensFromText === 'function' ? trackerApi.estimateTokensFromText(selectedText) : estimateTokensFromText(selectedText);
     const type = typeof trackerApi.detectSelectionType === 'function' ? trackerApi.detectSelectionType() : detectSelectionType();
-    const signature = getTrackingSignature(selectedText, type);
+    const bucketKey = `${window.location.hostname}:${type}:${String(tracked.node && tracked.node.nodeName || tracked.source || 'unknown')}`;
+    const hadPreviousText = Object.prototype.hasOwnProperty.call(trackerApi.lastObservedText || {}, bucketKey);
+    const incrementalText = getIncrementalTextDelta(bucketKey, selectedText);
+    if (hadPreviousText && !incrementalText) return;
+    const countText = incrementalText || selectedText;
+    if (!countText) return;
+
+    const estimatedTokens = typeof trackerApi.estimateTokensFromText === 'function' ? trackerApi.estimateTokensFromText(countText) : estimateTokensFromText(countText);
+    const signature = getTrackingSignature(countText, type);
     if (signature === lastTrackedSignature) return;
 
     console.log('[TokenTracker] trySendSelection', {
-      selection: selectedText.slice(0, 160),
+      selection: countText.slice(0, 160),
       node: describeNode(tracked.node),
       estimatedTokens,
       type,
-      source: tracked.source
+      source: tracked.source,
+      bucketKey
     });
-    
-    const payload = typeof trackerApi.buildTokenPayload === 'function' ? trackerApi.buildTokenPayload({ text: selectedText, type, hostname: window.location.hostname }) : buildTokenPayload({ text: selectedText, type, hostname: window.location.hostname });
+
+    const payload = typeof trackerApi.buildTokenPayload === 'function'
+      ? trackerApi.buildTokenPayload({ text: countText, type, hostname: window.location.hostname, source: tracked.source || 'unknown' })
+      : buildTokenPayload({ text: countText, type, hostname: window.location.hostname, source: tracked.source || 'unknown' });
+
     if (typeof trackerApi.sendTokenPayload === 'function') trackerApi.sendTokenPayload(payload); else sendTokenPayload(payload);
-    
+
     console.log('[TokenTracker] token payload', { provider: payload.provider, type, estimatedTokens, payload });
-    lastSentSelection = selectedText;
+    lastSentSelection = countText;
     lastTrackedSignature = signature;
-    
+
     setTimeout(() => { if (lastTrackedSignature === signature) lastTrackedSignature = ''; }, 4000);
   } catch (err) {
     if (typeof trackerApi.reportError === 'function') trackerApi.reportError(err); else reportError(err);
@@ -91,6 +137,7 @@ function trySendSelection() {
 
 let lastTrackedSignature = '';
 let inputDebounceTimer = null;
+trackerApi.lastObservedText = trackerApi.lastObservedText || {};
 
 function queueTrackedText() {
   clearTimeout(inputDebounceTimer);

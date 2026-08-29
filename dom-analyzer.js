@@ -94,11 +94,13 @@ function collectEditableCandidates(root = document) {
 }
 
 function getTrackedTextContext() {
+  const active = getDeepActiveElement();
+  const activeText = getElementTextContent(active);
+  if (activeText && isEditableField(active)) return { text: activeText, node: active, source: 'active-element' };
+
   const selInfo = getSelectedText();
   if (selInfo && selInfo.text) return { text: selInfo.text, node: selInfo.node, source: 'selection' };
 
-  const active = getDeepActiveElement();
-  const activeText = getElementTextContent(active);
   if (activeText) return { text: activeText, node: active, source: 'active-element' };
 
   const candidates = collectEditableCandidates(document);
@@ -182,6 +184,8 @@ function detectSelectionType() {
   const activeIsPrompt = active && isEditableField(active);
   const activeIsCompletion = active && matchContainerSelectors(active, completionKeywords);
   const activeMatch = active ? findMatchDetails(active, completionKeywords) || findMatchDetails(active, promptKeywords) : null;
+  const activeText = getElementTextContent(active);
+  const trackedTextIsActiveText = activeText && tracked.text === activeText;
 
   console.log('[TokenTracker] detectSelectionType', {
     text: tracked.text.slice(0, 160),
@@ -193,9 +197,11 @@ function detectSelectionType() {
     activeIsPrompt,
     activeIsCompletion,
     activeMatch,
+    trackedTextIsActiveText,
     activeTag: active && active.tagName
   });
 
+  if (activeIsPrompt && trackedTextIsActiveText) return 'prompt';
   if (selectionIsCompletion) return 'completion';
   if (selectionIsPrompt) return 'prompt';
   if (activeIsPrompt) return 'prompt';

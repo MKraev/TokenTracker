@@ -1,0 +1,11 @@
+{
+  "name": "token-tracker-smoke-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:smoke": "npx playwright install chromium && node tests/extension-smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

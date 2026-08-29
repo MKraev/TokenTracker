@@ -18,16 +18,20 @@ function getDayKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function buildTokenPayload({ text, type, hostname }) {
+function buildTokenPayload({ text, type, hostname, source = 'unknown' }) {
   const estimatedTokens = typeof estimateTokensFromText === 'function'
     ? estimateTokensFromText(text || '')
-    : Math.max(1, Math.round(String(text || '').trim().split(/\s+/).filter(Boolean).length * 1.3));
+    : Math.max(1, Math.ceil(String(text || '').trim().split(/\s+/).filter(Boolean).length * 1.3));
 
   return {
     action: 'saveTokens',
     provider: getProviderForHostname(hostname || window.location.hostname),
+    type: type || 'unknown',
+    source,
     prompt: type === 'prompt' ? estimatedTokens : 0,
-    completion: type === 'completion' ? estimatedTokens : 0
+    completion: type === 'completion' ? estimatedTokens : 0,
+    observedAt: new Date().toISOString(),
+    textLength: String(text || '').length
   };
 }
 
@@ -60,12 +64,20 @@ function directStorageUpdate(payload) {
       return;
     }
 
-    chrome.storage.local.get({ providers: {}, monthlyTotals: {}, dailyTotals: {} }, (data) => {
+    chrome.storage.local.get({
+      providers: {},
+      monthlyTotals: {},
+      dailyTotals: {},
+      dailyRecords: {},
+      eventLog: []
+    }, (data) => {
       if (chrome.runtime && chrome.runtime.lastError) return;
 
       const providers = data.providers || {};
       const monthlyTotals = data.monthlyTotals || {};
       const dailyTotals = data.dailyTotals || {};
+      const dailyRecords = data.dailyRecords || {};
+      const eventLog = Array.isArray(data.eventLog) ? data.eventLog : [];
       const p = payload.provider || 'other';
       const now = new Date();
       const currentMonthKey = getMonthKey(now);
@@ -88,9 +100,55 @@ function directStorageUpdate(payload) {
       currentDayData.completionTokens += (payload.completion || 0);
       dailyTotals[currentDayKey] = currentDayData;
 
+      const recordEntry = {
+        timestamp: payload.observedAt || new Date().toISOString(),
+        provider: p,
+        type: payload.type || 'unknown',
+        source: payload.source || 'unknown',
+        prompt: payload.prompt || 0,
+        completion: payload.completion || 0,
+        total: (payload.prompt || 0) + (payload.completion || 0),
+        textLength: payload.textLength || 0,
+        hostname: payload.hostname || window.location.hostname || 'unknown'
+      };
+
+      const record = dailyRecords[currentDayKey] || {
+        date: currentDayKey,
+        totals: { promptTokens: 0, completionTokens: 0 },
+        entries: []
+      };
+      record.totals.promptTokens += payload.prompt || 0;
+      record.totals.completionTokens += payload.completion || 0;
+      record.entries.push(recordEntry);
+      if (record.entries.length > 250) {
+        record.entries = record.entries.slice(-250);
+      }
+      dailyRecords[currentDayKey] = record;
+
+      eventLog.push({
+        timestamp: recordEntry.timestamp,
+        provider: p,
+        type: payload.type || 'unknown',
+        prompt: payload.prompt || 0,
+        completion: payload.completion || 0,
+        total: (payload.prompt || 0) + (payload.completion || 0),
+        source: payload.source || 'unknown'
+      });
+      if (eventLog.length > 400) {
+        eventLog.splice(0, eventLog.length - 400);
+      }
+
       try {
-        console.log('[TokenTracker] directStorageUpdate', { payload, providers, currentMonthKey, currentDayKey, currentMonthData: monthlyTotals[currentMonthKey], currentDayData: dailyTotals[currentDayKey] });
-        chrome.storage.local.set({ providers, monthlyTotals, dailyTotals });
+        console.log('[TokenTracker] directStorageUpdate', {
+          payload,
+          providers,
+          currentMonthKey,
+          currentDayKey,
+          currentMonthData: monthlyTotals[currentMonthKey],
+          currentDayData: dailyTotals[currentDayKey],
+          dailyRecord: dailyRecords[currentDayKey]
+        });
+        chrome.storage.local.set({ providers, monthlyTotals, dailyTotals, dailyRecords, eventLog });
       } catch (e) {
         console.warn('directStorageUpdate: storage.set failed', e);
       }
