@@ -10,6 +10,7 @@ const chromePath = process.env.CHROME_PATH;
 const context = await chromium.launchPersistentContext('', {
   headless: process.env.HEADLESS === 'true' ? true : false,
   ...(chromePath ? { executablePath: chromePath } : {}),
+  ...(chromePath ? {} : { channel: 'chrome' }),
   ignoreDefaultArgs: ['--disable-extensions'],
   args: [
     '--no-first-run',

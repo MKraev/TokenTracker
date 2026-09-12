@@ -96,6 +96,73 @@ async function readDatabaseExport() {
   }
 }
 
+function readStorageExport() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get({
+      providers: defaultStructure.providers,
+      promptTokens: 0,
+      completionTokens: 0,
+      monthlyTotals: {},
+      dailyTotals: {},
+      dailyRecords: {},
+      eventLog: []
+    }, (data) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(data);
+    });
+  });
+}
+
+async function createBackup(saveAs = false) {
+  const data = await readStorageExport();
+  const database = await readDatabaseExport();
+  const exportData = {
+    providers: data.providers || defaultStructure.providers,
+    monthlyTotals: data.monthlyTotals || {},
+    dailyTotals: data.dailyTotals || {},
+    dailyRecords: data.dailyRecords || {},
+    eventLog: data.eventLog || [],
+    database,
+    legacyTotals: {
+      promptTokens: data.promptTokens || 0,
+      completionTokens: data.completionTokens || 0
+    },
+    updatedAt: new Date().toISOString()
+  };
+  const filename = saveAs
+    ? 'ai_token_dashboard_data.json'
+    : `TokenTracker Backups/ai_token_dashboard_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+
+  chrome.downloads.download({
+    url: `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(exportData, null, 2))}`,
+    filename,
+    saveAs
+  }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn('[TokenTracker] Backup failed', chrome.runtime.lastError.message);
+    }
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create('tokenTrackerBackup', { periodInMinutes: 15 });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create('tokenTrackerBackup', { periodInMinutes: 15 });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'tokenTrackerBackup') {
+    createBackup().catch((error) => {
+      console.warn('[TokenTracker] Automatic backup failed', error);
+    });
+  }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'saveTokens') {
     storageWriteQueue = storageWriteQueue.then(() => new Promise((resolve) => {
@@ -206,39 +273,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'triggerDownload') {
-    chrome.storage.local.get({
-      providers: defaultStructure.providers,
-      promptTokens: 0,
-      completionTokens: 0,
-      monthlyTotals: {},
-      dailyTotals: {},
-      dailyRecords: {},
-      eventLog: []
-    }, async (data) => {
-      const providers = data.providers && Object.keys(data.providers).length ? data.providers : defaultStructure.providers;
-      const databaseExport = await readDatabaseExport();
-      const exportData = {
-        providers,
-        monthlyTotals: data.monthlyTotals || {},
-        dailyTotals: data.dailyTotals || {},
-        dailyRecords: data.dailyRecords || {},
-        eventLog: data.eventLog || [],
-        database: databaseExport,
-        legacyTotals: {
-          promptTokens: data.promptTokens || 0,
-          completionTokens: data.completionTokens || 0
-        },
-        updatedAt: new Date().toISOString()
-      };
-
-      const jsonString = JSON.stringify(exportData, null, 2);
-      const blob = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonString);
-
-      chrome.downloads.download({
-        url: blob,
-        filename: 'ai_token_dashboard_data.json',
-        saveAs: true
-      });
+    createBackup(true).catch((error) => {
+      console.warn('[TokenTracker] Manual export failed', error);
     });
   }
 
