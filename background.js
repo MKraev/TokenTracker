@@ -147,22 +147,6 @@ async function createBackup(saveAs = false) {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create('tokenTrackerBackup', { periodInMinutes: 15 });
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create('tokenTrackerBackup', { periodInMinutes: 15 });
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'tokenTrackerBackup') {
-    createBackup().catch((error) => {
-      console.warn('[TokenTracker] Automatic backup failed', error);
-    });
-  }
-});
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'saveTokens') {
     storageWriteQueue = storageWriteQueue.then(() => new Promise((resolve) => {

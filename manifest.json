@@ -3,7 +3,7 @@
   "name": "My AI Token Tracker",
   "version": "1.2",
   "description": "Следи и експортира AI токени към моя GitHub Дашборд",
-  "permissions": ["storage", "downloads", "alarms"],
+  "permissions": ["storage", "downloads"],
   "background": {
     "service_worker": "background.js"
   },
