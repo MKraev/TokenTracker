@@ -33,23 +33,85 @@ function getSelectedText() {
   } catch (e) { return { text: '', node: null }; }
 }
 
-function matchContainerSelectors(node, keywords) {
+function getElementContextInfo(el) {
+  if (!el) return { tag: '', className: '', id: '', ariaLabel: '', role: '', placeholder: '' };
+
+  return {
+    tag: (el.tagName || '').toUpperCase(),
+    className: (el.className || '').toString().toLowerCase(),
+    id: (el.id || '').toString().toLowerCase(),
+    ariaLabel: (el.getAttribute && el.getAttribute('aria-label') || '').toString().toLowerCase(),
+    role: (el.getAttribute && el.getAttribute('role') || '').toString().toLowerCase(),
+    placeholder: (el.getAttribute && el.getAttribute('placeholder') || '').toString().toLowerCase(),
+  };
+}
+
+function hasContextKeywords(node, keywords) {
   if (!node) return false;
+
   let current = node.nodeType !== Node.ELEMENT_NODE ? node.parentElement : node;
-  
   while (current && current !== document.body) {
-    if (current.tagName === 'INPUT' || current.tagName === 'TEXTAREA' || current.contentEditable === 'true') {
-      if (keywords.includes('input')) return true;
+    const info = getElementContextInfo(current);
+    const haystack = [info.tag, info.className, info.id, info.ariaLabel, info.role, info.placeholder].join(' ');
+
+    if (keywords.some(keyword => haystack.includes(keyword))) {
+      return true;
     }
-    
-    const className = (current.className || '').toString().toLowerCase();
-    const id = (current.id || '').toString().toLowerCase();
-    
-    const matches = keywords.some(kw => className.includes(kw) || id.includes(kw));
-    if (matches) return true;
-    
+
     current = current.parentElement;
   }
+  return false;
+}
+
+function isPromptLikeElement(node) {
+  if (!node) return false;
+
+  let current = node.nodeType !== Node.ELEMENT_NODE ? node.parentElement : node;
+  while (current && current !== document.body) {
+    const info = getElementContextInfo(current);
+    const haystack = [info.tag, info.className, info.id, info.ariaLabel, info.role, info.placeholder].join(' ');
+    const promptKeywords = ['input', 'compose', 'composer', 'editor', 'chat-input', 'textbox', 'prompt', 'question', 'query', 'user'];
+    const completionKeywords = ['assistant', 'bot', 'response', 'answer', 'completion', 'output', 'model', 'reply', 'bubble'];
+
+    if (info.tag === 'TEXTAREA' || info.tag === 'INPUT' || current.isContentEditable || current.contentEditable === 'true') {
+      return true;
+    }
+
+    if (completionKeywords.some(keyword => haystack.includes(keyword))) {
+      return false;
+    }
+
+    if (promptKeywords.some(keyword => haystack.includes(keyword))) {
+      return true;
+    }
+
+    current = current.parentElement;
+  }
+
+  return false;
+}
+
+function isCompletionLikeElement(node) {
+  if (!node) return false;
+
+  let current = node.nodeType !== Node.ELEMENT_NODE ? node.parentElement : node;
+  while (current && current !== document.body) {
+    const info = getElementContextInfo(current);
+    const haystack = [info.tag, info.className, info.id, info.ariaLabel, info.role, info.placeholder].join(' ');
+    const completionKeywords = ['assistant', 'bot', 'response', 'answer', 'completion', 'output', 'model', 'reply', 'bubble', 'message', 'result'];
+    const promptKeywords = ['input', 'compose', 'composer', 'editor', 'chat-input', 'textbox', 'prompt', 'question', 'query', 'user'];
+
+    if (promptKeywords.some(keyword => haystack.includes(keyword))) {
+      return false;
+    }
+
+    if (completionKeywords.some(keyword => haystack.includes(keyword))) {
+      return true;
+    }
+
+    current = current.parentElement;
+  }
+
   return false;
 }
 
@@ -57,17 +119,15 @@ function detectSelectionType() {
   const selInfo = getSelectedText();
   if (!selInfo || !selInfo.text) return null;
 
-  // Оптимизирано търсене на Промпт контейнери
-  if (matchContainerSelectors(selInfo.node, ['input', 'compose', 'editor', 'chat-input'])) return 'prompt';
-  
-  // Оптимизирано търсене на Изходни контейнери (поддържа бележници и клетки)
-  if (matchContainerSelectors(selInfo.node, ['message', 'response', 'assistant', 'bot', 'bubble', 'notebook', 'cell', 'lm', 'output'])) return 'completion';
+  const sourceNode = selInfo.node || getDeepActiveElement();
 
-  // Хеуристичен фолбек въз основа на фокуса
+  if (isPromptLikeElement(sourceNode)) return 'prompt';
+  if (isCompletionLikeElement(sourceNode)) return 'completion';
+
   const active = getDeepActiveElement();
-  if (active && (active.isContentEditable || matchContainerSelectors(active, ['input', 'compose', 'editor', 'chat-input']))) {
+  if (active && (active.isContentEditable || active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) {
     return 'prompt';
   }
 
-  return 'prompt';
+  return 'completion';
 }
