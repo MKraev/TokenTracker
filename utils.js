@@ -1,6 +1,5 @@
 // utils.js
-let lastSentSelection = '';
-let debounceTimer = null;
+var trackerApi = window.TokenTracker = window.TokenTracker || {};
 
 function canUseChromeRuntime() {
   try {
@@ -14,8 +13,19 @@ function canUseChromeRuntime() {
 }
 
 function estimateTokensFromText(text) {
-  const wordsCount = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(wordsCount * 1.3));
+  const clean = String(text || '').replace(/\r\n/g, '\n').trim();
+  if (!clean) return 0;
+
+  const words = clean.split(/\s+/).filter(Boolean).length;
+  const chars = clean.length;
+  const punctuation = (clean.match(/[.,!?;:()\[\]{}]/g) || []).length;
+
+  const estimated = Math.max(
+    1,
+    Math.ceil((chars / 4) + (words * 0.75) + (punctuation * 0.2))
+  );
+
+  return estimated;
 }
 
 function directStorageUpdate(payload) {
@@ -62,3 +72,8 @@ window.addEventListener('unhandledrejection', (ev) => {
     chrome.runtime.sendMessage({ action: 'reportError', message: 'unhandledrejection', stack: String(reason) });
   } catch (e) {}
 });
+
+trackerApi.canUseChromeRuntime = canUseChromeRuntime;
+trackerApi.estimateTokensFromText = estimateTokensFromText;
+trackerApi.directStorageUpdate = directStorageUpdate;
+trackerApi.reportError = reportError;
